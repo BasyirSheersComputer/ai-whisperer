@@ -17,4 +17,8 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     broker_connection_retry_on_startup=True,
+    beat_schedule={
+        "dispatch-outbound-every-minute": {"task": "dispatch_outbound", "schedule": 60.0},
+        "booking-reminders-every-5-min": {"task": "send_booking_reminders", "schedule": 300.0},
+    },
 )

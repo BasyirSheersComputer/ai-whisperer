@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
-from app.services.inbound import record_inbound_message
+from app.services.inbound import apply_account_updates, record_inbound_message
 from app.services.security import verify_meta_signature
 from app.workers.tasks import process_inbound_message
 
@@ -38,6 +38,7 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db)):
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="Invalid JSON") from exc
 
+    apply_account_updates(db, payload)
     new_message_ids = record_inbound_message(db, payload)
     for message_id in new_message_ids:
         process_inbound_message.delay(message_id)

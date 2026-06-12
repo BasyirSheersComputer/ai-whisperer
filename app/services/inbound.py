@@ -149,3 +149,35 @@ def record_inbound_message(db: Session, payload: dict) -> list[str]:
 
     db.commit()
     return new_message_ids
+
+
+def apply_account_updates(db: Session, payload: dict) -> list[str]:
+    """Handle phone_number_quality_update webhook events (M4 circuit breaker).
+
+    Updates the channel's quality rating; on a bad rating, pauses the tenant's
+    running campaigns (auto-pause circuit breaker, plan section 8.5).
+    """
+    from app.services.outbound import BAD_QUALITY, pause_tenant_campaigns
+
+    touched: list[str] = []
+    for entry in payload.get("entry", []):
+        for change in entry.get("changes", []):
+            if change.get("field") != "phone_number_quality_update":
+                continue
+            value = change.get("value", {})
+            display = value.get("display_phone_number")
+            event = (value.get("event") or value.get("current_limit") or "").upper()
+            if not display:
+                continue
+            channel = db.scalar(
+                select(TenantChannel).where(TenantChannel.display_number.in_([display, f"+{display}"]))
+            )
+            if channel is None:
+                continue
+            channel.quality_rating = event or channel.quality_rating
+            db.commit()
+            touched.append(channel.id)
+            if event in BAD_QUALITY:
+                paused = pause_tenant_campaigns(db, channel.tenant_id, f"meta_quality_event={event}")
+                logger.warning("Quality event %s on channel %s; paused %d campaigns", event, channel.id, paused)
+    return touched

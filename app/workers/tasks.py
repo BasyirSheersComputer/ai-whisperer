@@ -38,3 +38,15 @@ def process_inbound_message(self, message_id: str) -> str | None:
         raise self.retry(exc=exc) from exc
     finally:
         db.close()
+
+
+@celery_app.task(name="dispatch_outbound")
+def dispatch_outbound() -> int:
+    """Beat tick: send due campaign messages (M4)."""
+    from app.services.outbound import dispatch_due
+
+    db = SessionLocal()
+    try:
+        return dispatch_due(db)
+    finally:
+        db.close()
