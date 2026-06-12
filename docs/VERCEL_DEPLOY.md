@@ -9,10 +9,28 @@ The app runs on Vercel as serverless functions. Two architectural notes:
 2. **Managed Postgres required.** Use Neon or Supabase (Singapore region —
    closest to KL) and use the **pooled** connection string.
 
+## Supabase (configured 13 Jun 2026)
+
+Project: **ai-whisperer** (`nllzywzonturdbhiwhvl`, region ap-southeast-2,
+Postgres 17). The full 11-table schema is applied as migration
+`initial_schema_m1_m7` with RLS enabled on every table (no policies — the
+public REST/GraphQL surface is locked; the app connects as the postgres role,
+which bypasses RLS). `create_all` on app startup is a no-op against it.
+
+`DATABASE_URL` for Vercel (transaction pooler, port 6543 — required for
+serverless):
+
+```
+postgresql+psycopg2://postgres.nllzywzonturdbhiwhvl:[DB-PASSWORD]@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres
+```
+
+Get `[DB-PASSWORD]` from Supabase Dashboard -> Project Settings -> Database
+(reset it if unknown). If the pooler host differs, copy the "Transaction
+pooler" string from Dashboard -> Connect and add the `+psycopg2` driver prefix.
+
 ## Steps
 
-1. Create a Postgres database (Neon/Supabase, ap-southeast-1). Copy the pooled URL,
-   formatted `postgresql+psycopg2://user:pass@host/db?sslmode=require`.
+1. Database: done (above).
 2. `vercel link` the repo (or import it in the Vercel dashboard — framework preset:
    Other; no build command needed).
 3. Set environment variables (Production):
