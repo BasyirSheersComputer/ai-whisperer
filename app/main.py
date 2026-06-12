@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi.responses import HTMLResponse
 
-from app.api import admin, bookings, campaigns, health, leads, simulate, webhooks
+from app.api import admin, bookings, campaigns, health, internal, leads, simulate, webhooks
 from app.config import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(campaigns.router)
     app.include_router(bookings.router)
     app.include_router(admin.router)
+    app.include_router(internal.router)
 
     @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
     def admin_page():

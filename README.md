@@ -50,6 +50,15 @@ real `ANTHROPIC_API_KEY` and `LLM_DRY_RUN=false` for live Claude responses.
 docker compose up --build        # api :8000, worker, postgres :5432, redis :6379
 ```
 
+## Deployment
+
+Two supported targets — same codebase, same env vars:
+
+- **Vercel (serverless):** `CELERY_EAGER=true`, crons replace Celery beat,
+  managed Postgres (Neon/Supabase). Full guide: `docs/VERCEL_DEPLOY.md`.
+- **Docker (full stack):** `docker compose up` — API + Celery worker/beat +
+  Postgres + Redis. For VPS/Fly.io/Railway/AWS ap-southeast-5.
+
 ## Connecting a real WABA (when ready)
 
 1. Meta Business verification with your SSM-registered entity.

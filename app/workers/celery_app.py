@@ -22,3 +22,8 @@ celery_app.conf.update(
         "booking-reminders-every-5-min": {"task": "send_booking_reminders", "schedule": 300.0},
     },
 )
+
+# Serverless (Vercel): no broker/worker — execute tasks inline in the request.
+if settings.celery_eager:
+    celery_app.conf.task_always_eager = True
+    celery_app.conf.task_eager_propagates = False

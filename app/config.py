@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # Admin dashboard auth
     admin_token: str = ""
 
+    # Serverless mode (Vercel): run background tasks inline (no Redis/Celery worker)
+    celery_eager: bool = False
+    # Shared secret for cron-triggered internal endpoints (Vercel sends it as Bearer)
+    cron_secret: str = ""
+
     # Observability (optional)
     sentry_dsn: str = ""
 
