@@ -27,12 +27,19 @@ class Settings(BaseSettings):
     # When true, outbound messages are logged + stored but never sent to Meta.
     whatsapp_dry_run: bool = True
 
-    # LLM (Anthropic)
+    # LLM — provider-pluggable: "gemini" (default) or "anthropic"
+    llm_provider: str = "gemini"
+    # Gemini (REST, no SDK)
+    gemini_api_key: str = ""
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_classifier_model: str = "gemini-3.1-flash-lite"
+    gemini_responder_model: str = "gemini-3.5-flash"
+    # Anthropic (alternative provider)
     anthropic_api_key: str = ""
-    classifier_model: str = "claude-haiku-4-5-20251001"
-    responder_model: str = "claude-sonnet-4-6"
-    # When true (or no API key), deterministic heuristics replace API calls —
-    # keeps dev/tests runnable with zero keys and zero cost.
+    anthropic_classifier_model: str = "claude-haiku-4-5-20251001"
+    anthropic_responder_model: str = "claude-sonnet-4-6"
+    # When true (or the active provider has no API key), deterministic heuristics
+    # replace API calls — keeps dev/tests runnable with zero keys and zero cost.
     llm_dry_run: bool = True
     max_history_turns: int = 12
 

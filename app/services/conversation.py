@@ -230,7 +230,8 @@ def handle_inbound(db: Session, message_id: str) -> dict | None:
         "intent": classification.intent,
         "language": classification.language,
         "entities": classification.entities,
-        "dry_run": True if not get_settings().anthropic_api_key or get_settings().llm_dry_run else False,
+        "provider": get_settings().llm_provider,
+        "dry_run": llm.use_dry_run(),
     }
     if classification.intent == "positive" and profile.booking_url and profile.booking_url in reply:
         convo.state = ConversationState.booking_offered

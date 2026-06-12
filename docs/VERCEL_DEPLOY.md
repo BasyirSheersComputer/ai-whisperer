@@ -46,7 +46,7 @@ pooler" string from Dashboard -> Connect and add the `+psycopg2` driver prefix.
    | `ADMIN_TOKEN` | long random string for `/admin` |
    | `META_VERIFY_TOKEN` / `META_APP_SECRET` / `META_ACCESS_TOKEN` / `META_PHONE_NUMBER_ID` | from Meta developer console |
    | `WHATSAPP_DRY_RUN` | `true` until the WABA is verified, then `false` |
-   | `ANTHROPIC_API_KEY` + `LLM_DRY_RUN=false` | for live Claude replies |
+   | `GEMINI_API_KEY` + `LLM_DRY_RUN=false` | for live AI replies (default provider; `LLM_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` to switch) |
    | `CALCOM_API_KEY` + `CALENDAR_DRY_RUN=false` | for live slots |
    | `DEBUG` | `false` |
 

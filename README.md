@@ -41,8 +41,10 @@ curl -X POST http://localhost:8000/api/v1/simulate/inbound \
   -d '{"phone_number_id":"1234567890","from_number":"+60123456789","body":"Hi, still got promo ah?"}'
 ```
 
-With `LLM_DRY_RUN=true` the reply comes from deterministic heuristics; set a
-real `ANTHROPIC_API_KEY` and `LLM_DRY_RUN=false` for live Claude responses.
+With `LLM_DRY_RUN=true` replies come from deterministic heuristics. For live AI
+replies set `GEMINI_API_KEY` and `LLM_DRY_RUN=false` (Gemini is the default
+provider: flash-lite classifies intent, flash writes replies). Anthropic is the
+alternative: `LLM_PROVIDER=anthropic` + `ANTHROPIC_API_KEY`.
 
 ## Full stack (Docker)
 
