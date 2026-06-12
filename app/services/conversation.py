@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import (
     AuditLog,
+    Booking,
+    BookingStatus,
     BusinessProfile,
     Conversation,
     ConversationState,
@@ -25,6 +27,7 @@ from app.models import (
     Tenant,
 )
 from app.services import lexicon, llm
+from app.services.calendar import CalComProvider, Slot
 from app.services.prompts import build_history, build_responder_system
 
 logger = logging.getLogger(__name__)
@@ -74,6 +77,66 @@ def _handle_handoff(db: Session, lead: Lead, convo: Conversation, reason: str) -
     return {"action": "handoff", "reply": HANDOFF_REPLY}
 
 
+def _offer_slots(db: Session, lead: Lead, convo: Conversation, profile: BusinessProfile) -> dict:
+    """Positive intent -> offer concrete slots + booking link (M5)."""
+    slots = CalComProvider().get_slots(profile.calcom_event_slug, n=3)
+    lines = [f"{i + 1}) {s.label}" for i, s in enumerate(slots)]
+    link = f"\nOr book yourself here: {profile.booking_url}" if profile.booking_url else ""
+    body = "Awesome! Here are the next available times — just reply 1, 2 or 3:\n" + "\n".join(lines) + link
+    convo.state = ConversationState.booking_offered
+    if lead.status in (LeadStatus.engaged, LeadStatus.contacted):
+        lead.status = LeadStatus.qualified
+    return {
+        "action": "offer_slots",
+        "reply": body,
+        "llm_meta": {"intent": "positive", "offered_slots": [s.iso for s in slots]},
+    }
+
+
+def _try_book_slot(db: Session, lead: Lead, convo: Conversation, text: str) -> dict | None:
+    """If the lead picked an offered slot (reply '1'/'2'/'3'), book it. Else None."""
+    choice = text.strip().rstrip(".)").strip()
+    if choice not in {"1", "2", "3"}:
+        return None
+    last_offer = db.scalar(
+        select(Message)
+        .where(Message.conversation_id == convo.id, Message.direction == MessageDirection.outbound)
+        .order_by(Message.created_at.desc())
+    )
+    offered = (last_offer.llm_meta or {}).get("offered_slots") if last_offer is not None else None
+    if not offered:
+        return None
+    idx = int(choice) - 1
+    if idx >= len(offered):
+        return None
+
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
+
+    start = _dt.fromisoformat(offered[idx])
+    slot = Slot(start=start, end=start + _td(hours=1))
+    tenant = db.get(Tenant, lead.tenant_id)
+    profile = db.scalar(select(BusinessProfile).where(BusinessProfile.tenant_id == tenant.id))
+    ext_id = CalComProvider().create_booking(
+        profile.calcom_event_slug if profile else None, slot, lead.name, lead.phone_e164
+    )
+    db.add(Booking(
+        tenant_id=lead.tenant_id, lead_id=lead.id, conversation_id=convo.id,
+        calendar_provider="calcom", external_event_id=ext_id,
+        slot_start=slot.start, slot_end=slot.end, status=BookingStatus.booked,
+    ))
+    convo.state = ConversationState.booked
+    lead.status = LeadStatus.booked
+    _audit(db, lead.tenant_id, "booking_created", "booking",
+           {"lead_id": lead.id, "slot": slot.iso, "external_id": ext_id})
+    biz = profile.business_name if profile else "us"
+    return {
+        "action": "booked",
+        "reply": f"Locked in! {slot.label} at {biz}. We'll send a reminder the day before. See you!",
+        "llm_meta": {"intent": "booking_selection", "slot": slot.iso},
+    }
+
+
 _STATE_AFTER_INTENT = {
     "positive": ConversationState.qualified,
     "question": ConversationState.engaged,
@@ -113,7 +176,13 @@ def handle_inbound(db: Session, message_id: str) -> dict | None:
     if lexicon.is_human_request(text):
         return _handle_handoff(db, lead, convo, reason=f"Lead requested human: {text[:200]}")
 
-    # 2. Classify.
+    # 2. Booking slot selection (deterministic) when slots are on the table.
+    if convo.state == ConversationState.booking_offered:
+        booked = _try_book_slot(db, lead, convo, text)
+        if booked is not None:
+            return booked
+
+    # 3. Classify.
     classification = llm.classify(text)
     if classification.intent == "opt_out":
         return _handle_opt_out(db, lead, convo)
@@ -141,6 +210,9 @@ def handle_inbound(db: Session, message_id: str) -> dict | None:
     profile = db.scalar(select(BusinessProfile).where(BusinessProfile.tenant_id == tenant.id))
     if profile is None:
         return _handle_handoff(db, lead, convo, reason="No business profile configured")
+
+    if classification.intent == "positive":
+        return _offer_slots(db, lead, convo, profile)
 
     system_prompt = build_responder_system(tenant, profile, lead)
     history_rows = db.scalars(

@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     llm_dry_run: bool = True
     max_history_turns: int = 12
 
+    # Calendar (Cal.com)
+    calcom_api_key: str = ""
+    calcom_base_url: str = "https://api.cal.com/v2"
+    calendar_dry_run: bool = True
+
     # Outbound throttle defaults (per tenant, enforced in M4; stored now for consistency)
     default_hourly_send_cap: int = 50
     quiet_hours_start: int = 21  # 9pm MYT

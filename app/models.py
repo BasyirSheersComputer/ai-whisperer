@@ -133,6 +133,7 @@ class BusinessProfile(Base):
     pricing_md: Mapped[str | None] = mapped_column(Text)
     hours: Mapped[dict | None] = mapped_column(JSON)
     current_promos: Mapped[dict | None] = mapped_column(JSON)
+    calcom_event_slug: Mapped[str | None] = mapped_column(String(255))
 
     tenant: Mapped["Tenant"] = relationship(back_populates="profile")
 
@@ -232,6 +233,7 @@ class Booking(Base):
     slot_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     slot_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[BookingStatus] = mapped_column(Enum(BookingStatus, native_enum=False), default=BookingStatus.offered)
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Handoff(Base):

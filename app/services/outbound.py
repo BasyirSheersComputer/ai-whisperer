@@ -177,3 +177,35 @@ def dispatch_due(db: Session, now: datetime | None = None) -> int:
 
     db.commit()
     return total_sent
+
+
+def send_due_booking_reminders(db: Session, now: datetime | None = None) -> int:
+    """Send one T-24h reminder per booked appointment (cheap no-show insurance)."""
+    from app.models import Booking, BookingStatus
+
+    now = now or _now()
+    due = db.scalars(
+        select(Booking).where(
+            Booking.status == BookingStatus.booked,
+            Booking.reminder_sent_at.is_(None),
+            Booking.slot_start > now + timedelta(hours=23),
+            Booking.slot_start <= now + timedelta(hours=25),
+        )
+    ).all()
+    sent = 0
+    for booking in due:
+        lead = db.get(Lead, booking.lead_id)
+        if lead is None or lead.opted_out_at is not None:
+            continue
+        local = booking.slot_start.strftime("%a %d %b, %H:%M")
+        client = WhatsAppClient()
+        wamid = client.send_text(lead.phone_e164, f"Reminder: your appointment is tomorrow, {local} (MYT). Reply here if you need to reschedule!")
+        if booking.conversation_id:
+            db.add(Message(
+                conversation_id=booking.conversation_id, direction=MessageDirection.outbound,
+                body="[T-24h reminder]", wamid=wamid, msg_type="text",
+            ))
+        booking.reminder_sent_at = now
+        sent += 1
+    db.commit()
+    return sent

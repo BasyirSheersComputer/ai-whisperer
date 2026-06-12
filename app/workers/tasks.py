@@ -50,3 +50,15 @@ def dispatch_outbound() -> int:
         return dispatch_due(db)
     finally:
         db.close()
+
+
+@celery_app.task(name="send_booking_reminders")
+def send_booking_reminders() -> int:
+    """Beat tick: T-24h booking reminders (M5)."""
+    from app.services.outbound import send_due_booking_reminders
+
+    db = SessionLocal()
+    try:
+        return send_due_booking_reminders(db)
+    finally:
+        db.close()
