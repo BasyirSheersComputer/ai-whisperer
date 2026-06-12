@@ -3,9 +3,12 @@
 The app runs on Vercel as serverless functions. Two architectural notes:
 
 1. **No Celery worker/beat on Vercel.** Set `CELERY_EAGER=true` — inbound messages
-   are processed inline in the webhook request, and `vercel.json` crons replace
-   Celery beat (`/api/v1/internal/dispatch` every minute, `/reminders` every 5).
-   Note: minute-level crons require a Vercel Pro plan; Hobby allows daily crons only.
+   are processed inline in the webhook request. Scheduled ticks come from two layers:
+   `vercel.json` daily crons (Hobby-plan compatible: dispatch 02:00 UTC / 10:00 MYT,
+   reminders 02:30 UTC), plus `.github/workflows/scheduler.yml` which hits the same
+   endpoints every ~5 minutes for free via GitHub Actions. Configure the workflow by
+   adding repo variable `APP_URL` and repo secret `CRON_SECRET` in GitHub Settings.
+   (On Vercel Pro you can instead set the vercel.json crons to `* * * * *`.)
 2. **Managed Postgres required.** Use Neon or Supabase (Singapore region —
    closest to KL) and use the **pooled** connection string.
 

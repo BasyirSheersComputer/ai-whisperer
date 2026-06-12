@@ -2,8 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
   "crons": [
-    { "path": "/api/v1/internal/dispatch", "schedule": "* * * * *" },
-    { "path": "/api/v1/internal/reminders", "schedule": "*/5 * * * *" }
+    { "path": "/api/v1/internal/dispatch", "schedule": "0 2 * * *" },
+    { "path": "/api/v1/internal/reminders", "schedule": "30 2 * * *" }
   ],
   "functions": { "api/index.py": { "maxDuration": 60, "memory": 1024 } }
 }
