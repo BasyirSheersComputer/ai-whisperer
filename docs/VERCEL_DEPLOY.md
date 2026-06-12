@@ -34,8 +34,8 @@ pooler" string from Dashboard -> Connect and add the `+psycopg2` driver prefix.
 ## Steps
 
 1. Database: done (above).
-2. `vercel link` the repo (or import it in the Vercel dashboard — framework preset:
-   Other; no build command needed).
+2. Import the repo in the Vercel dashboard (framework preset: FastAPI — it
+   auto-detects the `app` object exported by the root `main.py`).
 3. Set environment variables (Production):
 
    | Var | Value |
