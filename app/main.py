@@ -4,7 +4,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import bookings, campaigns, health, leads, simulate, webhooks
+from pathlib import Path
+
+from fastapi.responses import HTMLResponse
+
+from app.api import admin, bookings, campaigns, health, leads, simulate, webhooks
 from app.config import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -29,6 +33,12 @@ def create_app() -> FastAPI:
     app.include_router(leads.router)
     app.include_router(campaigns.router)
     app.include_router(bookings.router)
+    app.include_router(admin.router)
+
+    @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+    def admin_page():
+        page = Path(__file__).parent / "static" / "admin.html"
+        return page.read_text(encoding="utf-8")
     return app
 
 

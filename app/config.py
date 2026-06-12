@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     llm_dry_run: bool = True
     max_history_turns: int = 12
 
+    # Admin dashboard auth
+    admin_token: str = ""
+
     # Calendar (Cal.com)
     calcom_api_key: str = ""
     calcom_base_url: str = "https://api.cal.com/v2"

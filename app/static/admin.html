@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactivation Agent — Admin</title>
+<style>
+  :root { --bg:#0f1419; --panel:#1a2129; --line:#2a333d; --text:#e6edf3; --dim:#8b98a5; --acc:#25d366; --warn:#f0a830; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--text); font:14px/1.5 system-ui,sans-serif; }
+  header { display:flex; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; } header .dot { color:var(--acc); }
+  select,input,textarea,button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:7px 10px; font:inherit; }
+  button { cursor:pointer; } button.primary { background:var(--acc); color:#04210f; border:0; font-weight:600; }
+  main { display:grid; grid-template-columns:280px 1fr 360px; gap:14px; padding:14px 20px; height:calc(100vh - 58px); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; overflow:auto; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:10px; }
+  .funnel { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  .stat { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px; text-align:center; }
+  .stat b { display:block; font-size:20px; } .stat span { font-size:11px; color:var(--dim); }
+  .convo { padding:8px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
+  .convo:hover, .convo.active { background:var(--bg); border-color:var(--line); }
+  .convo .state { font-size:11px; color:var(--acc); } .convo .state.human { color:var(--warn); }
+  .msg { max-width:80%; margin:6px 0; padding:8px 11px; border-radius:10px; white-space:pre-wrap; }
+  .msg.in { background:#22303c; } .msg.out { background:#0b3d2e; margin-left:auto; }
+  .msg .meta { font-size:10px; color:var(--dim); margin-top:3px; }
+  .handoff { border-left:3px solid var(--warn); padding:8px; margin-bottom:8px; background:var(--bg); border-radius:0 8px 8px 0; }
+  #composer { display:flex; gap:8px; margin-top:10px; } #composer input { flex:1; }
+  .row { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:12px; padding:20px; width:420px; }
+  dialog::backdrop { background:rgba(0,0,0,.6); } dialog input, dialog textarea { width:100%; margin-bottom:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot">●</span> AI Lead Reactivation — Agency Admin</h1>
+  <select id="tenantSel"></select>
+  <button onclick="dlg.showModal()">+ Onboard tenant</button>
+  <button onclick="refresh()">↻ Refresh</button>
+</header>
+<main>
+  <section class="panel">
+    <h2>Funnel</h2><div class="funnel" id="funnel"></div>
+    <h2>Handoff inbox</h2><div id="handoffs"></div>
+  </section>
+  <section class="panel">
+    <h2>Conversation</h2>
+    <div class="row" id="convoActions" style="display:none">
+      <button id="btnTake" onclick="takeover()">Take over</button>
+      <button id="btnRelease" onclick="release()">Hand back to AI</button>
+    </div>
+    <div id="messages"><p style="color:var(--dim)">Select a conversation →</p></div>
+    <div id="composer" style="display:none">
+      <input id="manualBody" placeholder="Reply as staff (requires takeover)…">
+      <button class="primary" onclick="manualSend()">Send</button>
+    </div>
+  </section>
+  <section class="panel"><h2>Conversations</h2><div id="convos"></div></section>
+</main>
+
+<dialog id="dlg">
+  <h2>Onboard new tenant</h2>
+  <input id="t_name" placeholder="Tenant name (e.g. FitHub Bangsar)">
+  <input id="t_slug" placeholder="slug (e.g. fithub-bangsar)">
+  <input id="t_biz" placeholder="Business display name">
+  <input id="t_offer" placeholder="Core offer (e.g. RM99 comeback month)">
+  <input id="t_booking" placeholder="Booking URL (cal.com/…)">
+  <textarea id="t_faq" rows="3" placeholder="FAQ (markdown)"></textarea>
+  <div class="row">
+    <button class="primary" onclick="onboard()">Create</button>
+    <button onclick="dlg.close()">Cancel</button>
+  </div>
+</dialog>
+
+<script>
+let TOKEN = sessionStorage.getItem("admin_token") || "";
+let tenantId = null, convoId = null;
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({"Content-Type": "application/json"}, opts.headers || {});
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  const r = await fetch(path, opts);
+  if (r.status === 401) {
+    TOKEN = prompt("Admin token:") || "";
+    sessionStorage.setItem("admin_token", TOKEN);
+    return api(path, opts);
+  }
+  if (!r.ok) { alert((await r.json()).detail || r.status); throw new Error(r.status); }
+  return r.json();
+}
+
+async function loadTenants() {
+  const tenants = await api("/api/v1/admin/tenants");
+  const sel = document.getElementById("tenantSel");
+  sel.innerHTML = tenants.map(t => `<option value="${t.id}">${t.name} (${t.industry})</option>`).join("");
+  sel.onchange = () => { tenantId = sel.value; refresh(); };
+  if (tenants.length && !tenantId) { tenantId = tenants[0].id; }
+}
+
+async function refresh() {
+  if (!tenantId) return;
+  const f = await api(`/api/v1/admin/tenants/${tenantId}/funnel`);
+  document.getElementById("funnel").innerHTML =
+    ["total_leads","contacted","engaged","qualified","booked","showed"]
+      .map(k => `<div class="stat"><b>${f[k]}</b><span>${k.replace("_"," ")}</span></div>`).join("")
+    + `<div class="stat"><b>${f.opted_out}</b><span>opted out</span></div>`;
+
+  const hs = await api(`/api/v1/admin/tenants/${tenantId}/handoffs`);
+  document.getElementById("handoffs").innerHTML = hs.length
+    ? hs.map(h => `<div class="handoff"><b>${h.lead_name || "Unknown"}</b><br><small>${h.reason || ""}</small><br>
+        <button onclick="openConvo('${h.conversation_id}')">Open</button>
+        <button onclick="resolveHandoff('${h.id}')">Resolve</button></div>`).join("")
+    : '<p style="color:var(--dim)">None pending 🎉</p>';
+
+  const cs = await api(`/api/v1/admin/tenants/${tenantId}/conversations`);
+  document.getElementById("convos").innerHTML = cs.map(c =>
+    `<div class="convo ${c.id === convoId ? "active" : ""}" onclick="openConvo('${c.id}')">
+       <b>${c.lead_name || c.lead_phone || "?"}</b>
+       <div class="state ${c.human ? "human" : ""}">${c.state}${c.human ? " · HUMAN" : ""}</div>
+     </div>`).join("") || '<p style="color:var(--dim)">No conversations yet.</p>';
+}
+
+async function openConvo(id) {
+  convoId = id;
+  const msgs = await api(`/api/v1/admin/conversations/${id}/messages`);
+  document.getElementById("messages").innerHTML = msgs.map(m =>
+    `<div class="msg ${m.direction === "in" ? "in" : "out"}">${m.body || "(media)"}
+       <div class="meta">${m.at.slice(0,16)}${m.intent ? " · " + m.intent : ""}${m.status ? " · " + m.status : ""}</div>
+     </div>`).join("");
+  document.getElementById("convoActions").style.display = "flex";
+  document.getElementById("composer").style.display = "flex";
+  refresh();
+}
+
+async function takeover() { if (convoId) { await api(`/api/v1/admin/conversations/${convoId}/takeover`, {method:"POST"}); refresh(); } }
+async function release()  { if (convoId) { await api(`/api/v1/admin/conversations/${convoId}/release`,  {method:"POST"}); refresh(); } }
+async function resolveHandoff(id) { await api(`/api/v1/admin/handoffs/${id}/resolve`, {method:"POST"}); refresh(); }
+
+async function manualSend() {
+  const input = document.getElementById("manualBody");
+  if (!convoId || !input.value.trim()) return;
+  await api(`/api/v1/admin/conversations/${convoId}/send`, {method:"POST", body: JSON.stringify({body: input.value})});
+  input.value = "";
+  openConvo(convoId);
+}
+
+async function onboard() {
+  const v = id => document.getElementById(id).value.trim();
+  await api("/api/v1/admin/tenants", {method:"POST", body: JSON.stringify({
+    name: v("t_name"), slug: v("t_slug"), business_name: v("t_biz") || v("t_name"),
+    core_offer: v("t_offer") || null, booking_url: v("t_booking") || null, faq_md: v("t_faq") || null,
+  })});
+  dlg.close(); await loadTenants(); refresh();
+}
+
+const dlg = document.getElementById("dlg");
+loadTenants().then(refresh);
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>
