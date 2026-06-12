@@ -25,11 +25,15 @@ if _dsn:  # pragma: no cover - optional dependency
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # M1: create_all keeps dev/test bootstrap simple; Alembic migrations land in M3
-    # when the schema first changes against live data.
+    # create_all is a dev convenience (prod schema is migrated in Supabase).
+    # Never let a DB hiccup at cold start take down the whole app — /healthz
+    # reports DB state instead.
     from app.db import Base, engine
 
-    Base.metadata.create_all(engine)
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger(__name__).error("Startup create_all failed (continuing): %s", exc)
     yield
 
 

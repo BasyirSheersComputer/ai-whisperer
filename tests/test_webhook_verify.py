@@ -25,4 +25,4 @@ def test_verify_missing_params(client):
 
 
 def test_healthz(client):
-    assert client.get("/healthz").json() == {"status": "ok"}
+    assert client.get("/healthz").json() == {"status": "ok", "db": "connected"}
