@@ -1,3 +1,22 @@
+[project]
+name = "ai-whisperer"
+version = "1.0.0"
+description = "AI Lead Reactivation Agent — WhatsApp-first dormant-lead reactivation for KL SMBs"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy>=2.0",
+    "alembic",
+    "psycopg2-binary",
+    "pydantic-settings",
+    "httpx",
+    "celery[redis]",
+    "redis",
+    "anthropic",
+    "python-multipart",
+]
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
