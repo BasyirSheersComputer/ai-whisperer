@@ -4,11 +4,13 @@ WhatsApp-first dormant-lead reactivation for Kuala Lumpur SMBs. See
 `AILeadReactivationAgent_PRD.md` (requirements) and `ARCHITECTURE_BUILD_PLAN.md`
 (architecture, KL compliance, milestones).
 
-**Status: Milestone 2 complete** — conversational brain on top of the M1
-foundation: Haiku intent classifier with deterministic multilingual opt-out
-short-circuit (EN/BM/ZH), Sonnet responder with tenant context injection,
-conversation state machine, terminal opt-out with audit trail, human handoff.
-LLM dry-run mode means everything runs with zero API keys.
+**Status: all milestones (M1–M7) complete.** End-to-end: lead CSV ingestion with
+PDPA consent gate → throttled WhatsApp template campaigns with quality circuit
+breaker → LLM conversation engine (multilingual opt-out, qualification, handoff)
+→ in-chat slot booking with T-24h reminders → agency admin dashboard at `/admin`.
+Every external dependency (Meta, Claude, Cal.com) has a dry-run mode, so the whole
+system runs locally with zero API keys. See `docs/PDPA_RUNBOOK.md` for compliance
+operations.
 
 ## Quick start (local, no Docker)
 
@@ -76,8 +78,23 @@ tests/
 
 - [x] **M1** Foundation + WhatsApp echo
 - [x] **M2** Intent classifier + LLM responder + state machine
-- [ ] **M3** CSV ingestion + consent gate (+ Alembic migrations)
-- [ ] **M4** Campaigns, drip scheduler, throttle, quality circuit breaker
-- [ ] **M5** Cal.com booking flow
-- [ ] **M6** Agency dashboard + multilingual polish
-- [ ] **M7** KL pilot & hardening
+- [x] **M3** CSV ingestion + consent gate + PDPA DSR endpoints
+- [x] **M4** Campaigns, drip scheduler, throttle, quality circuit breaker
+- [x] **M5** Cal.com booking flow + reminders
+- [x] **M6** Agency dashboard (`/admin`) + management APIs
+- [x] **M7** PDPA runbook, optional Sentry, hardening
+
+Schema migrations: the schema is created via `create_all` on startup. Introduce
+Alembic before the first schema change against a live production database.
+
+## Key endpoints
+
+| Area | Endpoint |
+|---|---|
+| Webhook (Meta) | `GET/POST /webhooks/whatsapp` |
+| Simulator (debug) | `POST /api/v1/simulate/inbound` |
+| Leads | `POST .../leads/import-csv`, `POST .../leads`, `GET .../leads` |
+| PDPA DSR | `GET .../leads/{id}/export`, `DELETE .../leads/{id}` |
+| Campaigns | `POST .../campaigns`, `/enqueue`, `/start`, `/pause`, `GET .../campaigns/{id}` |
+| Bookings | `GET .../bookings`, `PATCH .../bookings/{id}` |
+| Admin | `/admin` UI; `/api/v1/admin/*` (tenants, funnel, conversations, takeover, send, handoffs) |

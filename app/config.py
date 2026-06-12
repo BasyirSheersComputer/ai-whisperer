@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Admin dashboard auth
     admin_token: str = ""
 
+    # Observability (optional)
+    sentry_dsn: str = ""
+
     # Calendar (Cal.com)
     calcom_api_key: str = ""
     calcom_base_url: str = "https://api.cal.com/v2"

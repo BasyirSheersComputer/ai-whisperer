@@ -13,6 +13,15 @@ from app.config import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
+_dsn = get_settings().sentry_dsn
+if _dsn:  # pragma: no cover - optional dependency
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(dsn=_dsn, traces_sample_rate=0.1)
+    except ImportError:
+        logging.getLogger(__name__).warning("SENTRY_DSN set but sentry-sdk not installed")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
