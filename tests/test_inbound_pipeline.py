@@ -1,4 +1,4 @@
-"""End-to-end M1 pipeline: webhook → store → echo reply (eager Celery, dry-run send)."""
+"""End-to-end pipeline: webhook -> store -> reply (eager Celery, dry-run send + LLM)."""
 import json
 
 from sqlalchemy import select
@@ -16,7 +16,7 @@ def post_signed(client, payload: dict):
     )
 
 
-def test_inbound_creates_lead_conversation_and_echo(client, seeded_channel, db_session):
+def test_inbound_creates_lead_conversation_and_reply(client, seeded_channel, db_session):
     resp = post_signed(client, make_inbound_payload(body="Hi, still got promo ah?"))
     assert resp.status_code == 200
     assert resp.json()["queued"] == 1
@@ -36,8 +36,8 @@ def test_inbound_creates_lead_conversation_and_echo(client, seeded_channel, db_s
     assert len(inbound) == 1
     assert inbound[0].body == "Hi, still got promo ah?"
     assert len(outbound) == 1
-    assert outbound[0].body == "Echo: Hi, still got promo ah?"
     assert outbound[0].wamid.startswith("wamid.DRYRUN.")
+    assert outbound[0].llm_meta["intent"] == "question"
 
 
 def test_webhook_idempotent_on_meta_retry(client, seeded_channel, db_session):
@@ -82,7 +82,7 @@ def test_delivery_status_updates_outbound_message(client, seeded_channel, db_ses
     assert db_session.get(Message, out.id).delivery_status == "delivered"
 
 
-def test_opted_out_lead_gets_no_echo(client, seeded_channel, db_session):
+def test_opted_out_lead_gets_no_reply(client, seeded_channel, db_session):
     from datetime import datetime, timezone
 
     from app.models import ConsentBasis

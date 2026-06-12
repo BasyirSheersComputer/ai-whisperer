@@ -16,6 +16,7 @@ os.environ.update(
         "DATABASE_URL": f"sqlite:///{_tmpdir}/test.db",
         "DEBUG": "true",
         "WHATSAPP_DRY_RUN": "true",
+        "LLM_DRY_RUN": "true",
         "META_APP_SECRET": TEST_APP_SECRET,
         "META_VERIFY_TOKEN": TEST_VERIFY_TOKEN,
     }
@@ -65,7 +66,14 @@ def seeded_channel(db_session):
     db_session.flush()
     channel = TenantChannel(tenant_id=tenant.id, phone_number_id="PNID123", display_number="+60311111111")
     db_session.add(channel)
-    db_session.add(BusinessProfile(tenant_id=tenant.id, business_name="Test Gym"))
+    db_session.add(
+        BusinessProfile(
+            tenant_id=tenant.id,
+            business_name="Test Gym",
+            core_offer="RM99 comeback month",
+            booking_url="https://cal.com/test-gym/trial",
+        )
+    )
     db_session.commit()
     return channel
 

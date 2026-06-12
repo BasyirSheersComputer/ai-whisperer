@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     # When true, outbound messages are logged + stored but never sent to Meta.
     whatsapp_dry_run: bool = True
 
+    # LLM (Anthropic)
+    anthropic_api_key: str = ""
+    classifier_model: str = "claude-haiku-4-5-20251001"
+    responder_model: str = "claude-sonnet-4-6"
+    # When true (or no API key), deterministic heuristics replace API calls —
+    # keeps dev/tests runnable with zero keys and zero cost.
+    llm_dry_run: bool = True
+    max_history_turns: int = 12
+
     # Outbound throttle defaults (per tenant, enforced in M4; stored now for consistency)
     default_hourly_send_cap: int = 50
     quiet_hours_start: int = 21  # 9pm MYT

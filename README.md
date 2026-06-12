@@ -4,9 +4,11 @@ WhatsApp-first dormant-lead reactivation for Kuala Lumpur SMBs. See
 `AILeadReactivationAgent_PRD.md` (requirements) and `ARCHITECTURE_BUILD_PLAN.md`
 (architecture, KL compliance, milestones).
 
-**Status: Milestone 1 complete** — FastAPI backend, tenant-scoped schema, Meta
-WhatsApp Cloud API webhooks (verify + signed receive), dry-run send client,
-Celery echo pipeline, inbound simulator.
+**Status: Milestone 2 complete** — conversational brain on top of the M1
+foundation: Haiku intent classifier with deterministic multilingual opt-out
+short-circuit (EN/BM/ZH), Sonnet responder with tenant context injection,
+conversation state machine, terminal opt-out with audit trail, human handoff.
+LLM dry-run mode means everything runs with zero API keys.
 
 ## Quick start (local, no Docker)
 
@@ -37,7 +39,8 @@ curl -X POST http://localhost:8000/api/v1/simulate/inbound \
   -d '{"phone_number_id":"1234567890","from_number":"+60123456789","body":"Hi, still got promo ah?"}'
 ```
 
-The worker echoes the message back (logged, since `WHATSAPP_DRY_RUN=true`).
+With `LLM_DRY_RUN=true` the reply comes from deterministic heuristics; set a
+real `ANTHROPIC_API_KEY` and `LLM_DRY_RUN=false` for live Claude responses.
 
 ## Full stack (Docker)
 
@@ -62,8 +65,9 @@ app/
   db.py              engine/session
   models.py          tenant-scoped schema (plan §5)
   api/               webhooks, simulator, health
-  services/          whatsapp client, signature check, inbound pipeline
-  workers/           celery app + tasks (M1: echo; M2: LLM)
+  services/          whatsapp client, signature check, inbound pipeline,
+                     lexicon (multilingual opt-out), llm, prompts, conversation
+  workers/           celery app + tasks
 scripts/seed_demo.py
 tests/
 ```
@@ -71,7 +75,7 @@ tests/
 ## Milestones
 
 - [x] **M1** Foundation + WhatsApp echo
-- [ ] **M2** Intent classifier + LLM responder + state machine
+- [x] **M2** Intent classifier + LLM responder + state machine
 - [ ] **M3** CSV ingestion + consent gate (+ Alembic migrations)
 - [ ] **M4** Campaigns, drip scheduler, throttle, quality circuit breaker
 - [ ] **M5** Cal.com booking flow

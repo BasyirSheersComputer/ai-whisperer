@@ -1,15 +1,13 @@
 """Background tasks.
 
-Milestone 1: process_inbound_message simply echoes the lead's text back,
-proving the receive → store → respond → send loop end-to-end.
-Milestone 2 replaces the echo with the intent classifier + LLM responder.
+M2: process_inbound_message runs the conversation orchestrator
+(classifier + state machine + responder) and sends the decided reply.
 """
 import logging
 
-from sqlalchemy import select
-
 from app.db import SessionLocal
 from app.models import Conversation, Lead, Message, MessageDirection
+from app.services.conversation import _store_outbound, handle_inbound
 from app.services.whatsapp import WhatsAppClient
 from app.workers.celery_app import celery_app
 
@@ -20,32 +18,18 @@ logger = logging.getLogger(__name__)
 def process_inbound_message(self, message_id: str) -> str | None:
     db = SessionLocal()
     try:
-        msg = db.get(Message, message_id)
-        if msg is None or msg.direction != MessageDirection.inbound:
-            logger.warning("Message %s not found or not inbound; skipping", message_id)
+        result = handle_inbound(db, message_id)
+        if result is None or not result.get("reply"):
+            db.commit()  # state changes (e.g. silence decisions) still persist
             return None
 
+        msg = db.get(Message, message_id)
         convo = db.get(Conversation, msg.conversation_id)
         lead = db.get(Lead, convo.lead_id)
 
-        if lead.opted_out_at is not None:
-            logger.info("Lead %s opted out; no reply", lead.id)
-            return None
-
-        # --- M1 echo behaviour (replaced by LLM pipeline in M2) ---
-        reply_body = f"Echo: {msg.body}" if msg.body else "Echo: (non-text message received)"
-
         client = WhatsAppClient()
-        wamid = client.send_text(lead.phone_e164, reply_body)
-
-        out = Message(
-            conversation_id=convo.id,
-            direction=MessageDirection.outbound,
-            body=reply_body,
-            wamid=wamid,
-            msg_type="text",
-        )
-        db.add(out)
+        wamid = client.send_text(lead.phone_e164, result["reply"])
+        out = _store_outbound(db, convo, result["reply"], wamid, result.get("llm_meta"))
         db.commit()
         return out.id
     except Exception as exc:  # pragma: no cover - retry path

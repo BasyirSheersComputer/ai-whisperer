@@ -19,4 +19,4 @@ def test_simulate_inbound_runs_full_pipeline(client, seeded_channel, db_session)
 
     outbound = db_session.scalar(select(Message).where(Message.direction == MessageDirection.outbound))
     assert outbound is not None
-    assert outbound.body == "Echo: Testing testing"
+    assert outbound.body  # M2: LLM-decided reply (d
