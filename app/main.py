@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import health, simulate, webhooks
+from app.api import health, leads, simulate, webhooks
 from app.config import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(webhooks.router)
     app.include_router(simulate.router)
+    app.include_router(leads.router)
     return app
 
 
